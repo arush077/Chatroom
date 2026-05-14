@@ -1,26 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 function JoinScreen({ socket, onJoin }) {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('error', (data) => {
+    const onError = (data) => {
       setError(data.message);
       setIsLoading(false);
-    });
+    };
 
-    socket.on('joined', (data) => {
-      setIsLoading(false);
-      onJoin(data.user.username);
-    });
+    const onJoined = (data) => {
+      if (!joinedRef.current) {
+        joinedRef.current = true;
+        setIsLoading(false);
+        onJoin(data.user);
+      }
+    };
+
+    socket.on('error', onError);
+    socket.on('joined', onJoined);
 
     return () => {
-      socket.off('error');
-      socket.off('joined');
+      socket.off('error', onError);
+      socket.off('joined', onJoined);
     };
   }, [socket, onJoin]);
 
@@ -40,6 +47,7 @@ function JoinScreen({ socket, onJoin }) {
 
     setError('');
     setIsLoading(true);
+    joinedRef.current = false;
     socket.emit('join', { username: trimmed });
   };
 

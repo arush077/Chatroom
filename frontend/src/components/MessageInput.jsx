@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import EmojiPicker from './EmojiPicker';
 
-function MessageInput() {
+function MessageInput({ replyTo, onCancelReply, onSendReply }) {
   const [message, setMessage] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const textareaRef = useRef(null);
@@ -44,7 +44,19 @@ function MessageInput() {
 
     const socket = window.__socket;
     if (socket) {
-      socket.emit('message', { message: message.trim() });
+      if (replyTo) {
+        socket.emit('message', {
+          message: message.trim(),
+          replyTo: {
+            id: replyTo.id,
+            username: replyTo.username,
+            message: replyTo.message.substring(0, 50)
+          }
+        });
+        onCancelReply?.();
+      } else {
+        socket.emit('message', { message: message.trim() });
+      }
       socket.emit('stopTyping');
     }
 
@@ -66,10 +78,29 @@ function MessageInput() {
 
   return (
     <div className="p-4 border-t border-noir-600/30 glass-heavy">
+      {replyTo && (
+        <div className="mb-3 p-3 bg-noir-800/50 rounded-lg border-l-2 border-crimson-600 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-crimson-500 font-medium">Replying to {replyTo.username}</p>
+              <p className="text-sm text-noir-400 truncate">{replyTo.message}</p>
+            </div>
+            <button
+              onClick={onCancelReply}
+              className="p-1 text-noir-400 hover:text-white transition-colors ml-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-end gap-3">
         <div className="relative flex-1">
           {showEmoji && (
-            <div className="absolute bottom-full mb-2 left-0">
+            <div className="absolute bottom-full mb-2 left-0 z-30">
               <EmojiPicker onSelect={handleEmojiSelect} onClose={() => setShowEmoji(false)} />
             </div>
           )}

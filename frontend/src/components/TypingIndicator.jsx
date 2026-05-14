@@ -1,13 +1,18 @@
-function TypingIndicator({ users }) {
+function TypingIndicator({ users, usersData = [] }) {
   if (users.length === 0) return null;
+
+  const getUserName = (userId) => {
+    const user = usersData.find(u => u.id === userId);
+    return user?.username || 'Someone';
+  };
 
   let text;
   if (users.length === 1) {
-    text = `${users[0]} is typing`;
+    text = `${getUserName(users[0].id)} is typing`;
   } else if (users.length === 2) {
-    text = `${users[0]} and ${users[1]} are typing`;
+    text = `${getUserName(users[0].id)} and ${getUserName(users[1].id)} are typing`;
   } else {
-    text = `${users[0]} and ${users.length - 1} others are typing`;
+    text = `${getUserName(users[0].id)} and ${users.length - 1} others are typing`;
   }
 
   return (
@@ -17,7 +22,7 @@ function TypingIndicator({ users }) {
         <span className="typing-dot" />
         <span className="typing-dot" />
       </div>
-      <span>{text}...</span>
+      <span className="text-crimson-500">{text}...</span>
     </div>
   );
 }

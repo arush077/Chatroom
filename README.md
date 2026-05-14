@@ -14,6 +14,13 @@ A premium dark-themed real-time chatroom built with React, Node.js, and Socket.I
 - **Sound Effects** - Toggle notification sounds
 - **Responsive Design** - Works on desktop, tablet, and mobile
 - **Beautiful Animations** - Smooth transitions and micro-interactions
+- **Cinematic Intro** - Netflix-inspired intro animation
+- **Ambient Background** - Animated particles and glow effects
+- **Live Presence** - Active/Idle/Offline user states
+- **Message Reactions** - Add emoji reactions to messages
+- **Reply to Messages** - Quote and reply to specific messages
+- **Read Receipts** - Sent/Delivered/Seen status indicators
+- **Dynamic Activity Glow** - UI reacts to live activity
 
 ## Tech Stack
 
@@ -88,16 +95,19 @@ chatroom/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── JoinScreen.jsx      # Username entry
-│   │   │   ├── ChatLayout.jsx      # Main layout
-│   │   │   ├── Sidebar.jsx         # Online users
-│   │   │   ├── ChatArea.jsx        # Messages area
-│   │   │   ├── Message.jsx         # Individual message
-│   │   │   ├── MessageInput.jsx    # Text input
-│   │   │   ├── EmojiPicker.jsx     # Emoji selector
-│   │   │   └── TypingIndicator.jsx # Typing status
+│   │   │   ├── JoinScreen.jsx        # Username entry
+│   │   │   ├── ChatLayout.jsx        # Main layout
+│   │   │   ├── ChatArea.jsx          # Messages area
+│   │   │   ├── Sidebar.jsx           # Online users with presence
+│   │   │   ├── Message.jsx           # Individual message with reactions
+│   │   │   ├── MessageInput.jsx      # Text input with reply
+│   │   │   ├── MessageReactions.jsx  # Reaction display
+│   │   │   ├── EmojiPicker.jsx       # Emoji selector
+│   │   │   ├── TypingIndicator.jsx   # Typing status
+│   │   │   ├── CinematicIntro.jsx    # Intro animation
+│   │   │   └── AmbientBackground.jsx # Animated particles
 │   │   ├── utils/
-│   │   │   └── formatTime.js       # Time formatting
+│   │   │   └── formatTime.js         # Time formatting
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
@@ -115,9 +125,18 @@ chatroom/
 | `joined` | Server → Client | Confirmation with user data |
 | `message` | Both | Send/receive messages |
 | `typing` | Client → Server | User is typing |
+| `stopTyping` | Client → Server | User stopped typing |
 | `userTyping` | Server → Client | Someone is typing |
+| `userStoppedTyping` | Server → Client | Someone stopped typing |
 | `userJoined` | Server → Client | New user notification |
 | `userLeft` | Server → Client | User disconnect notification |
+| `presenceUpdate` | Server → Client | User presence states (active/idle/offline) |
+| `activity` | Client → Server | Keep presence active |
+| `addReaction` | Client → Server | Add emoji reaction |
+| `reactionUpdate` | Server → Client | Reaction changed |
+| `markRead` | Client → Server | Mark message as read |
+| `markAllRead` | Client → Server | Mark all messages as read |
+| `messageStatus` | Server → Client | Message status update (sent/delivered/seen) |
 
 ## Design
 

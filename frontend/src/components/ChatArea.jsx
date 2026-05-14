@@ -1,21 +1,45 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import Message from './Message';
 import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
 
-function ChatArea({ messages, users, currentUser, typingUsers, notifications, onOpenSidebar }) {
+function ChatArea({
+  messages,
+  users,
+  currentUser,
+  typingUsers,
+  notifications,
+  onOpenSidebar,
+  onAddReaction,
+  onReply,
+  onScrollToMessage,
+  lastMessageId
+}) {
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
   const [showNotifications, setShowNotifications] = useState(true);
+  const [replyTo, setReplyTo] = useState(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, typingUsers]);
+  }, [messages]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowNotifications(false), 5000);
     return () => clearTimeout(timer);
   }, [notifications]);
+
+  const handleSendReply = useCallback((message, replyText) => {
+    setReplyTo(null);
+    window.__socket?.emit('message', {
+      message: replyText,
+      replyTo: {
+        id: message.id,
+        username: message.username,
+        message: message.message.substring(0, 50)
+      }
+    });
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -34,12 +58,8 @@ function ChatArea({ messages, users, currentUser, typingUsers, notifications, on
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               NoirChat
             </h1>
-            <p className="text-xs text-noir-400">Global chatroom</p>
+            <p className="text-xs text-noir-400">Global chatroom • {users.length} online</p>
           </div>
-        </div>
-        <div className="hidden md:flex items-center gap-2 text-sm text-noir-400">
-          <span className="w-2 h-2 bg-green-500 rounded-full" />
-          {users.length} online
         </div>
       </div>
 
@@ -55,26 +75,38 @@ function ChatArea({ messages, users, currentUser, typingUsers, notifications, on
 
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto p-4 space-y-2"
       >
         {messages.map((msg, idx) => (
           <Message
-            key={msg.id || idx}
+            key={msg.id}
+            id={`message-${msg.id}`}
             message={msg}
             isOwn={msg.userId === currentUser.id}
-            showAvatar={
-              idx === 0 ||
-              messages[idx - 1]?.userId !== msg.userId
-            }
+            showAvatar={idx === 0 || messages[idx - 1]?.userId !== msg.userId}
+            onAddReaction={onAddReaction}
+            onReply={() => {
+              setReplyTo(msg);
+              onReply(msg);
+            }}
+            onScrollToOriginal={onScrollToMessage}
+            isNew={msg.id === lastMessageId}
           />
         ))}
 
-        <TypingIndicator users={typingUsers} />
+        <TypingIndicator users={typingUsers} usersData={users} />
 
         <div ref={messagesEndRef} />
       </div>
 
-      <MessageInput />
+      <MessageInput
+        replyTo={replyTo}
+        onCancelReply={() => {
+          setReplyTo(null);
+          onReply(null);
+        }}
+        onSendReply={handleSendReply}
+      />
     </div>
   );
 }

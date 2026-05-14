@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import ChatArea from './ChatArea';
+import AmbientBackground from './AmbientBackground';
 
 function ChatLayout({ socket, user, onLogout }) {
   const [users, setUsers] = useState([]);
@@ -12,8 +13,12 @@ function ChatLayout({ socket, user, onLogout }) {
     const saved = localStorage.getItem('noirchat-sound');
     return saved !== 'false';
   });
+  const [activityLevel, setActivityLevel] = useState('idle');
+  const [lastMessageId, setLastMessageId] = useState(null);
 
   const notificationTimeoutRef = useRef({});
+  const activityTimeoutRef = useRef(null);
+  const typingTimeoutRef = useRef({});
 
   useEffect(() => {
     if (!socket) return;
@@ -31,24 +36,71 @@ function ChatLayout({ socket, user, onLogout }) {
       setUsers(data.users);
     });
 
+    socket.on('presenceUpdate', (data) => {
+      setUsers(data.users);
+    });
+
     socket.on('message', (message) => {
       setMessages((prev) => [...prev, message]);
+      setLastMessageId(message.id);
+
       if (soundEnabled && message.userId !== user.id) {
         playMessageSound();
       }
+
+      setActivityLevel('active');
+      if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current);
+      activityTimeoutRef.current = setTimeout(() => setActivityLevel('idle'), 2000);
+
+      if (typingTimeoutRef.current[message.userId]) {
+        clearTimeout(typingTimeoutRef.current[message.userId]);
+        delete typingTimeoutRef.current[message.userId];
+      }
+      setTypingUsers((prev) => prev.filter(u => u.id !== message.userId));
+
+      socket.emit('markAllRead');
     });
 
-    socket.on('userTyping', ({ username }) => {
+    socket.on('messageStatus', ({ messageId, status }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, status } : msg
+        )
+      );
+    });
+
+    socket.on('reactionUpdate', ({ messageId, reactions }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, reactions } : msg
+        )
+      );
+    });
+
+    socket.on('userTyping', ({ userId, username }) => {
       setTypingUsers((prev) => {
-        if (!prev.includes(username)) {
-          return [...prev, username];
+        if (!prev.find(u => u.id === userId)) {
+          return [...prev, { id: userId, username }];
         }
         return prev;
       });
+      setActivityLevel('typing');
+
+      if (typingTimeoutRef.current[userId]) {
+        clearTimeout(typingTimeoutRef.current[userId]);
+      }
+      typingTimeoutRef.current[userId] = setTimeout(() => {
+        setTypingUsers((prev) => prev.filter(u => u.id !== userId));
+      }, 3000);
     });
 
-    socket.on('userStoppedTyping', () => {
-      setTypingUsers([]);
+    socket.on('userStoppedTyping', ({ userId }) => {
+      if (typingTimeoutRef.current[userId]) {
+        clearTimeout(typingTimeoutRef.current[userId]);
+        delete typingTimeoutRef.current[userId];
+      }
+      setTypingUsers((prev) => prev.filter(u => u.id !== userId));
+      setActivityLevel('idle');
     });
 
     socket.on('notification', (notification) => {
@@ -67,7 +119,10 @@ function ChatLayout({ socket, user, onLogout }) {
       socket.off('joined');
       socket.off('userJoined');
       socket.off('userLeft');
+      socket.off('presenceUpdate');
       socket.off('message');
+      socket.off('messageStatus');
+      socket.off('reactionUpdate');
       socket.off('userTyping');
       socket.off('userStoppedTyping');
       socket.off('notification');
@@ -75,21 +130,23 @@ function ChatLayout({ socket, user, onLogout }) {
   }, [socket, user.id, soundEnabled]);
 
   const playMessageSound = () => {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
 
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
 
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
 
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (e) {}
   };
 
   const toggleSound = () => {
@@ -98,10 +155,25 @@ function ChatLayout({ socket, user, onLogout }) {
     localStorage.setItem('noirchat-sound', String(newValue));
   };
 
+  const addReaction = (messageId, emoji) => {
+    if (socket?.connected) {
+      socket.emit('addReaction', { messageId, emoji });
+    }
+  };
+
+  const scrollToMessage = (messageId) => {
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   return (
-    <div className="h-screen w-screen flex bg-noir-900 overflow-hidden">
+    <div className="h-screen w-screen flex bg-noir-900 overflow-hidden relative">
+      <AmbientBackground activityLevel={activityLevel} />
+
       <div
-        className={`fixed md:relative z-40 md:z-auto inset-0 md:inset-auto transition-all duration-300 ${
+        className={`fixed md:relative z-40 md:z-auto transition-all duration-300 ${
           sidebarOpen ? 'inset-0 bg-noir-900/80 md:bg-transparent' : 'pointer-events-none'
         }`}
         onClick={() => setSidebarOpen(false)}
@@ -122,7 +194,7 @@ function ChatLayout({ socket, user, onLogout }) {
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative z-10">
         <ChatArea
           messages={messages}
           users={users}
@@ -130,6 +202,10 @@ function ChatLayout({ socket, user, onLogout }) {
           typingUsers={typingUsers}
           notifications={notifications}
           onOpenSidebar={() => setSidebarOpen(true)}
+          onAddReaction={addReaction}
+          onReply={(msg) => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, replyingTo: msg } : m))}
+          onScrollToMessage={scrollToMessage}
+          lastMessageId={lastMessageId}
         />
       </div>
     </div>

@@ -1,11 +1,32 @@
+import { formatLastSeen } from '../utils/formatTime';
+
 function Sidebar({ users, currentUser, onClose, soundEnabled, onToggleSound, onLogout }) {
+  const getPresenceColor = (presence) => {
+    switch (presence) {
+      case 'active': return 'presence-active';
+      case 'idle': return 'presence-idle';
+      default: return 'presence-offline';
+    }
+  };
+
+  const getPresenceText = (presence, lastSeen) => {
+    switch (presence) {
+      case 'active': return 'Active now';
+      case 'idle': return 'Idle';
+      default: return lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline';
+    }
+  };
+
+  const onlineUsers = users.filter(u => u.presence !== 'offline');
+  const offlineUsers = users.filter(u => u.presence === 'offline');
+
   return (
     <div className="w-72 h-full glass-heavy flex flex-col">
       <div className="p-4 border-b border-noir-600/30">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-outfit font-semibold text-white">Online</h2>
           <span className="px-2 py-1 bg-crimson-600/20 text-crimson-500 text-xs rounded-full font-medium">
-            {users.length}
+            {onlineUsers.length}
           </span>
         </div>
         <button
@@ -19,13 +40,11 @@ function Sidebar({ users, currentUser, onClose, soundEnabled, onToggleSound, onL
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {users.map((u) => (
+        {onlineUsers.map((u, idx) => (
           <div
             key={u.id}
-            className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
-              u.id === currentUser.id
-                ? 'bg-crimson-600/10 border border-crimson-600/20'
-                : 'hover:bg-noir-700/50'
+            className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:bg-noir-700/50 animate-fade-in stagger-${Math.min(idx + 1, 5)} ${
+              u.id === currentUser.id ? 'bg-crimson-600/10 border border-crimson-600/20' : ''
             }`}
           >
             <div className="relative">
@@ -38,7 +57,7 @@ function Sidebar({ users, currentUser, onClose, soundEnabled, onToggleSound, onL
               >
                 {u.username.charAt(0).toUpperCase()}
               </div>
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-noir-800" />
+              <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-noir-800 ${getPresenceColor(u.presence)}`} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
@@ -47,10 +66,43 @@ function Sidebar({ users, currentUser, onClose, soundEnabled, onToggleSound, onL
                   <span className="text-noir-400 text-xs ml-1">(you)</span>
                 )}
               </p>
-              <p className="text-xs text-green-500">Online</p>
+              <p className="text-xs text-noir-400">
+                {u.presence === 'typing' ? (
+                  <span className="text-crimson-500">Typing...</span>
+                ) : (
+                  getPresenceText(u.presence, u.lastSeen)
+                )}
+              </p>
             </div>
           </div>
         ))}
+
+        {offlineUsers.length > 0 && (
+          <>
+            <div className="pt-4 pb-2">
+              <p className="text-xs text-noir-500 uppercase tracking-wider">Offline</p>
+            </div>
+            {offlineUsers.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-center gap-3 p-3 rounded-xl opacity-50"
+              >
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-noir-700 flex items-center justify-center text-sm font-outfit font-semibold text-noir-400">
+                    {u.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-noir-800 presence-offline" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{u.username}</p>
+                  <p className="text-xs text-noir-500">
+                    {u.lastSeen ? `Last seen ${formatLastSeen(u.lastSeen)}` : 'Offline'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
 
         {users.length === 0 && (
           <div className="text-center py-8">
