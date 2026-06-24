@@ -114,7 +114,7 @@ function JoinScreen({ socket, onJoin }) {
                     Joining...
                   </span>
                 ) : (
-                  'Join Chat'
+                  'Press here'
                 )}
               </button>
             </form>
