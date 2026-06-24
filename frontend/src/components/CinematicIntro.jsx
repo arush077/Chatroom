@@ -53,7 +53,7 @@ function CinematicIntro({ onEnter }) {
             phase === 'subtitle' ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
           }`}
         >
-          Where shadows converse
+          Where shadows meet
         </p>
 
         <button
